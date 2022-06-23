@@ -39,7 +39,7 @@ func Example() {
 
 	cr := rpctest.NewCallRecorder()
 
-	ctx = rpcpool.WithDialerWrapper(ctx, func(ctx context.Context, dialer rpcpool.Dialer) rpcpool.Dialer {
+	ctx = rpcpool.WithDialerWrapper(ctx, func(ctx context.Context, address string, dialer rpcpool.Dialer) rpcpool.Dialer {
 
 		return func(context.Context) (conn drpc.Conn, state *tls.ConnectionState, err error) {
 

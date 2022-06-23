@@ -106,13 +106,13 @@ func (d Dialer) DialNodeURL(ctx context.Context, nodeURL storj.NodeURL) (_ *Conn
 		return nil, Error.New("tls options not set when required for this dial")
 	}
 
-	return d.dialPool(ctx, "node:"+nodeURL.ID.String(), func(ctx context.Context) (drpc.Conn, *tls.ConnectionState, error) {
+	return d.dialPool(ctx, "node:"+nodeURL.ID.String(), rpcpool.WrapDialer(ctx, nodeURL.Address, func(ctx context.Context) (drpc.Conn, *tls.ConnectionState, error) {
 		// check for a quic rollout, and if not, force tcp.
 		if !checkQUICRolloutState(ctx, nodeURL.ID) {
 			ctx = hyrbidConnectorContextWithForcedKind(ctx, "tcp")
 		}
 		return d.dialEncryptedConn(ctx, nodeURL.Address, d.TLSOptions.ClientTLSConfig(nodeURL.ID))
-	})
+	}))
 }
 
 // DialAddressInsecure dials to the specified address and does not check the node id.
@@ -123,17 +123,17 @@ func (d Dialer) DialAddressInsecure(ctx context.Context, address string) (_ *Con
 		return nil, Error.New("tls options not set when required for this dial")
 	}
 
-	return d.dialPool(ctx, "insecure:"+address, func(ctx context.Context) (drpc.Conn, *tls.ConnectionState, error) {
+	return d.dialPool(ctx, "insecure:"+address, rpcpool.WrapDialer(ctx, address, func(ctx context.Context) (drpc.Conn, *tls.ConnectionState, error) {
 		// check for a quic rollout, and if not, force tcp.
 		if !checkQUICRolloutState(ctx, storj.NodeID{}) {
 			ctx = hyrbidConnectorContextWithForcedKind(ctx, "tcp")
 		}
 		return d.dialEncryptedConn(ctx, address, d.TLSOptions.UnverifiedClientTLSConfig())
-	})
+	}))
 }
 
 // DialAddressHostnameVerification dials to the specified address and assumes that the
-// server will valdiate their hostname with the system/browser CA, unless overridden.
+// server will validate their hostname with the system/browser CA, unless overridden.
 // It ignores any TLSOptions set on the dialer.
 func (d Dialer) DialAddressHostnameVerification(ctx context.Context, address string) (_ *Conn, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -158,13 +158,14 @@ func (d Dialer) DialAddressHostnameVerification(ctx context.Context, address str
 		tlsConfig.ServerName = host
 	}
 
-	return d.dialPool(ctx, "hostname:"+address, func(ctx context.Context) (drpc.Conn, *tls.ConnectionState, error) {
-		// check for a quic rollout, and if not, force tcp.
-		if !checkQUICRolloutState(ctx, storj.NodeID{}) {
-			ctx = hyrbidConnectorContextWithForcedKind(ctx, "tcp")
-		}
-		return d.dialEncryptedConn(ctx, address, tlsConfig)
-	})
+	return d.dialPool(ctx, "hostname:"+address, rpcpool.WrapDialer(ctx, address,
+		func(ctx context.Context) (drpc.Conn, *tls.ConnectionState, error) {
+			// check for a  quic rollout, and if not, force tcp.
+			if !checkQUICRolloutState(ctx, storj.NodeID{}) {
+				ctx = hyrbidConnectorContextWithForcedKind(ctx, "tcp")
+			}
+			return d.dialEncryptedConn(ctx, address, tlsConfig)
+		}))
 }
 
 // DialAddressUnencrypted dials to the specified address without tls.
@@ -174,13 +175,13 @@ func (d Dialer) DialAddressUnencrypted(ctx context.Context, address string) (_ *
 	// clear out TLS options so that the cache does not include it as part of the key.
 	d.TLSOptions = nil
 
-	return d.dialPool(ctx, "unencrypted:"+address, func(ctx context.Context) (drpc.Conn, *tls.ConnectionState, error) {
+	return d.dialPool(ctx, "unencrypted:"+address, rpcpool.WrapDialer(ctx, address, func(ctx context.Context) (drpc.Conn, *tls.ConnectionState, error) {
 		// check for a quic rollout, and if not, force tcp.
 		if !checkQUICRolloutState(ctx, storj.NodeID{}) {
 			ctx = hyrbidConnectorContextWithForcedKind(ctx, "tcp")
 		}
 		return d.dialUnencryptedConn(ctx, address)
-	})
+	}))
 }
 
 //
@@ -199,7 +200,7 @@ func (d Dialer) dialPool(ctx context.Context, key string, dialer rpcpool.Dialer)
 		defer cancel()
 	}
 
-	conn, state, err := d.Pool.Get(ctx, key, d.TLSOptions, rpcpool.WrapDialer(ctx, dialer))
+	conn, state, err := d.Pool.Get(ctx, key, d.TLSOptions, dialer)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

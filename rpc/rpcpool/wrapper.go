@@ -8,7 +8,7 @@ import "context"
 type dialerWrapper struct{}
 
 // DialerWrapper can create enhanced functionality.
-type DialerWrapper = func(ctx context.Context, dialer Dialer) Dialer
+type DialerWrapper = func(ctx context.Context, address string, dialer Dialer) Dialer
 
 // WithDialerWrapper creates context with DialerWrapper used by dial.Invoke.
 func WithDialerWrapper(ctx context.Context, wrapper DialerWrapper) context.Context {
@@ -22,10 +22,10 @@ func GetWrapper(ctx context.Context) (DialerWrapper, bool) {
 }
 
 // WrapDialer returns with dialed which may be wrapped if wrapper is registered.
-func WrapDialer(ctx context.Context, dialer Dialer) Dialer {
+func WrapDialer(ctx context.Context, address string, dialer Dialer) Dialer {
 	wrapper, found := GetWrapper(ctx)
 	if !found {
 		return dialer
 	}
-	return wrapper(ctx, dialer)
+	return wrapper(ctx, address, dialer)
 }
