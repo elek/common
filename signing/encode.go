@@ -5,6 +5,7 @@ package signing
 
 import (
 	"context"
+	"storj.io/common/rpc/rpctracing"
 
 	"storj.io/common/pb"
 )
@@ -52,6 +53,7 @@ func EncodeOrderLimit(ctx context.Context, limit *pb.OrderLimit) (_ []byte, err 
 // EncodeOrder encodes order into bytes for signing. Removes signature from serialized order.
 func EncodeOrder(ctx context.Context, order *pb.Order) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
+	rpctracing.WithoutDistributedTracing(ctx)
 
 	// protobuf has problems with serializing types with nullable=false
 	// this uses a different message for signing, such that the rest of the code
