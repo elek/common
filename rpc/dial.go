@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 	"net"
+	"storj.io/common/experiment"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -215,7 +216,7 @@ func (d Dialer) dialPool(ctx context.Context, key string, dialer rpcpool.Dialer)
 
 	return &Conn{
 		state: *state,
-		Conn:  rpctracing.NewTracingWrapper(conn),
+		Conn:  experiment.NewConnWrapper(rpctracing.NewTracingWrapper(conn)),
 	}, nil
 }
 
