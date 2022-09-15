@@ -41,3 +41,5 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 )
+
+replace storj.io/monkit-jaeger => github.com/elek/monkit-jaeger v0.0.0-20220915071818-80a8a9040066
