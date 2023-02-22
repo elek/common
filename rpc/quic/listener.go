@@ -23,13 +23,13 @@ const defaultIdleTimeout = 60 * time.Second
 // Listener implements listener for QUIC.
 type Listener struct {
 	listener quic.Listener
-	conn     *net.UDPConn
+	conn     net.PacketConn
 }
 
 // NewListener returns a new listener instance for QUIC.
 // The quic.Config may be nil, in that case the default values will be used.
 // if the provided context is closed, all existing or following Accept calls will return an error.
-func NewListener(conn *net.UDPConn, tlsConfig *tls.Config, quicConfig *quic.Config) (net.Listener, error) {
+func NewListener(conn net.PacketConn, tlsConfig *tls.Config, quicConfig *quic.Config) (net.Listener, error) {
 	if conn == nil {
 		return nil, Error.New("underlying udp connection can't be nil")
 	}
