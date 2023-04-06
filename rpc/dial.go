@@ -114,7 +114,13 @@ type DialOptions struct {
 func (d Dialer) DialNode(ctx context.Context, nodeURL storj.NodeURL, opts DialOptions) (_ *Conn, err error) {
 	defer mon.Task()(&ctx, "node: "+nodeURL.String())(&err)
 
-	if opts.ReplaySafe && nodeURL.NoiseInfo != (storj.NoiseInfo{}) {
+	// check for a quic rollout
+	useQuic := checkQUICRolloutState(ctx, nodeURL.ID)
+
+	forcedKind, _ := ctx.Value(hybridConnectorForcedKind{}).(string)
+
+	// we don't use noise, if the kind is already forced, or Quic us requested with rollout
+	if forcedKind == "" && !useQuic && opts.ReplaySafe && nodeURL.NoiseInfo != (storj.NoiseInfo{}) {
 		vals := url.Values{}
 		nodeURL.NoiseInfo.WriteTo(vals)
 		key := fmt.Sprintf("node+noise:%s:%s", nodeURL.ID, vals.Encode())
@@ -123,15 +129,16 @@ func (d Dialer) DialNode(ctx context.Context, nodeURL storj.NodeURL, opts DialOp
 		})
 	}
 
+	// no pre-defined preference, no Quic rollout, no noise --> TCP is the only option
+	if !useQuic && forcedKind == "" {
+		ctx = WithForcedKind(ctx, "tcp")
+	}
+
 	if d.TLSOptions == nil {
 		return nil, Error.New("tls options not set when required for this dial")
 	}
 
 	return d.dialPool(ctx, "node:"+nodeURL.ID.String(), func(ctx context.Context) (drpc.Conn, *tls.ConnectionState, error) {
-		// check for a quic rollout, and if not, force tcp.
-		if !checkQUICRolloutState(ctx, nodeURL.ID) {
-			ctx = WithForcedKind(ctx, "tcp")
-		}
 		return d.dialEncryptedConn(ctx, nodeURL.Address, d.TLSOptions.ClientTLSConfig(nodeURL.ID))
 	})
 }
